@@ -1,6 +1,7 @@
 import type { ChainInfo } from "@keplr-wallet/types";
 import React, { useEffect, useState } from "react";
 import osmo from "../config/osmosis";
+import { assertIsDeliverTxSuccess, SigningStargateClient } from "@cosmjs/stargate";
 
 function Keplr() {
 	const [chain, setChain] = useState<ChainInfo>(osmo);
@@ -28,16 +29,84 @@ function Keplr() {
 	}, [address, client, sendHash]);
 
 	// 连接keplr钱包  Todo
-	const connectWallet = async () => {};
+	const connectWallet = async () => {
+		if (!window.keplr) {
+			alert("Please install keplr wallet first");
+		}
 
-	// 余额查询  Todo
-	const getBalances = async () => {};
+		await window.keplr.experimentalSuggestChain(chain);
+		await window.keplr.enable(chain.chainId);
 
-	// txhash查询  Todo
-	const getTx = async () => {};
+		let offlineSigner = window.keplr.getOfflineSigner(chain.chainId);
+		let accounts = await offlineSigner.getAccounts();
+		
+		let client = await SigningStargateClient.connectWithSigner(
+			chain.rpc,offlineSigner
+		);
 
-	// 转账 Todo
-	const sendToken = async () => {};
+		setAddress(accounts[0].address);
+		setClient(client);
+	};
+
+	// 余额查询  Done
+	const getBalances = async () => {
+		if (client) {
+			let balance = client.getBalance(address, chain.stakeCurrency.coinDenom);
+			setBalance(balance);
+		}
+	};
+
+	// txhash查询  Done
+	const getTx = async () => {
+		if (tx && client) {
+			let txRes = await client.getTx(address, sendHash);
+			setTxRes(txRes);
+		}
+	};
+
+	// 转账 Done
+	const sendToken = async () => {
+		if (!client || !recipent || !address) return;
+
+		let decimal = 10 * 1e6;
+		let amount = [
+			{
+				denom: chain.stakeCurrency.coinMinimalDenom,
+				amount: decimal.toString()
+			}
+		];
+		let fee = {
+			amount: [
+				{
+					denom: chain.stakeCurrency.coinMinimalDenom,
+					amount: 0.025
+				}
+			],
+			gas: '200000'
+		};
+
+		try {
+			const result = await client.sendTokens(
+				address,
+				recipent,
+				amount,
+				fee,
+				""
+			);
+			assertIsDeliverTxSuccess(result);
+			console.log(result);
+			
+			if (result.code == 0) {
+				alert(
+					"transfer success height:" + result.height +
+					"hash:" + result.transactionHash
+				);
+				setTx(result.transactionHash);
+			};
+		} catch (e) {
+			console.log(e);
+		}
+	};
 
 	return (
 		<div className="keplr">

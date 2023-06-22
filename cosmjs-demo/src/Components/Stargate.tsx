@@ -48,23 +48,59 @@ function Stargate() {
 		getOthers();
 	}, [address, client]);
 
-	// 创建账户 Todo
-	const createAccount = async () => {};
+	// 创建账户 Done
+	const createAccount = async () => {
+		let myAccount = await DirectSecp256k1HdWallet.generate(12, {prefix: 'osmo'});	
 
-	// 通过助记词钱包获得地址 Todo
-	const getAddressByMnemonic = async () => {}
+		let mnemonic = myAccount?.mnemonic;
+		localStorage.setItem('mnemonic', mnemonic);
+		setMnemonic(mnemonic)
+	};
 
-	// 余额查询 Todo
-	const getBalance = async () => {};
+	// 通过助记词钱包获得地址 Done
+	const getAddressByMnemonic = async () => {
+		let wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, {prefix: 'osmo'});
+		let [firstAccount] = await wallet.getAccounts();
+		setAddress(firstAccount.address);
+	}
 
-	// strageClient 基础 api 使用 Todo
-	const getOthers = async () => {};
+	// 余额查询 Done
+	const getBalance = async () => {
+		if (client) {
+			let balance = await client.getBalance(
+				address,
+				chain.stakeCurrency.coinMinimalDenom,
+			);
+			setBalance(balance)
+		}
+	};
 
-	// connect client Todo
-	const connect = async () => {};
+	// strageClient 基础 api 使用 Done
+	const getOthers = async () => {
+		setChainId(await client.chainId);
+		setAccount(await client.getAccount(address));
+		
+		setAllBalances(await client.getAllBalances(address));
+		
+		setSequence(await client.getSequence(address));
+		
+		let height = await client.getHeight();
+		setHeight(height);
+		setBlock(await client.getBlock(height));
+	};
 
-	// disconnect client Todo
-	const disConnect = async () => {};
+	// connect client Done
+	const connect = async () => {
+		const client = await StargateClient.connect(chain.rpc)
+		console.log("With client, chain id:", await client.getChainId(), ", height:", await client.getHeight())
+		setClient(client);
+	};
+
+	// disconnect client Done
+	const disConnect = async () => {
+		let _client = await client.disconnect()
+		setClient(_client)
+	};
 
 	return (
 		<div className="stargate">
@@ -110,7 +146,7 @@ function Stargate() {
 				</span>
 				&nbsp;
 				{address && (
-					<a href="https://faucet.osmosis.zone/" target="_blank">
+					<a href="https://faucet.testnet.osmosis.zone" target="_blank">
 						获取
 					</a>
 				)}
